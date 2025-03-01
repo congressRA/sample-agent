@@ -66,7 +66,7 @@ def create_embedding(text):
     )
     return response.data[0].embedding
 
-def query_pinecone(query_text, namespace=None, top_k=100, threshold=0.3, filter_dict=None):
+def query_pinecone(query_text, namespace=None, top_k=200, threshold=0.3, filter_dict=None):
     """Query Pinecone index with a text query and return matches above threshold"""
     # Generate embedding for query
     query_embedding = create_embedding(query_text)
@@ -174,7 +174,7 @@ def handle_query_legislative_issues(parameters):
     year = parameters.get("year")
     namespace = parameters.get("namespace")  # Allow direct namespace specification
     threshold = parameters.get("threshold", 0.35)
-    limit = parameters.get("limit", 50)
+    limit = parameters.get("limit", 100)  # Increased default limit to get more articles
     
     print(f"Querying for: {query_text}")
     all_results = []
@@ -208,7 +208,7 @@ def handle_query_legislative_issues(parameters):
         # Query each namespace for this year
         for ns in year_namespaces:
             print(f"  - Querying namespace: {ns}")
-            results = query_pinecone(query_text, namespace=ns, top_k=100, threshold=threshold)
+            results = query_pinecone(query_text, namespace=ns, top_k=200, threshold=threshold)
             all_results.extend(results["matches"])
             queried_namespaces.append(ns)
     
@@ -225,13 +225,13 @@ def handle_query_legislative_issues(parameters):
             # Query each namespace for this year
             for ns in year_namespaces:
                 print(f"  - Querying namespace: {ns}")
-                results = query_pinecone(query_text, namespace=ns, top_k=100, threshold=threshold)
+                results = query_pinecone(query_text, namespace=ns, top_k=200, threshold=threshold)
                 all_results.extend(results["matches"])
                 queried_namespaces.append(ns)
     
-    # Sort by score and limit results
+    # Sort by score and get a substantial number of results for comprehensive analysis
     all_results.sort(key=lambda x: x["score"], reverse=True)
-    limited_results = all_results[:limit]
+    limited_results = all_results[:min(len(all_results), limit)]
     
     print(f"Found {len(all_results)} total matching articles")
     print(f"Using top {len(limited_results)} results for analysis")
@@ -278,9 +278,9 @@ def handle_get_available_periods(parameters):
 
 # ----- STREAMING IMPLEMENTATION -----
 
-def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=True, discovery_mode=False):
+def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=True, discovery_mode=False, iteration=1, max_iterations=3):
     """Analyze legislative issues in Congress with Claude and stream the response"""
-    print("Analyzing legislative issues in Congress...\n")
+    print(f"Analyzing legislative issues in Congress... [Iteration {iteration}/{max_iterations}]\n")
     
     # Default query if none provided
     if not query:
@@ -307,7 +307,7 @@ def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=
         "year": year,
         "namespace": namespace,
         "threshold": 0.35,
-        "limit": 50
+        "limit": 100  # Increased to get more articles for better analysis
     }
     
     articles_data = handle_query_legislative_issues(parameters)
@@ -352,9 +352,9 @@ Your output must be structured as valid JSON surrounded by <json></json> tags wi
     },
     ...
   ],
-  "continue_exploration": boolean,  // whether you want to explore more namespaces
-  "next_namespaces": ["YYYY_MM", ...],  // which namespaces to explore next (if continue_exploration is true)
-  "reasoning": "string",  // brief explanation of why you want to continue or stop
+  "continue_exploration": boolean,  // whether you want to explore more namespaces/years
+  "next_periods": ["YYYY", "YYYY_MM", ...],  // which periods to explore next (years or specific namespaces)
+  "reasoning": "string",  // explanation of why you want to continue or stop
   "recommended_queries": ["query1", "query2", ...] // suggested queries for further exploration
 }
 """
@@ -364,6 +364,7 @@ Your output must be structured as valid JSON surrounded by <json></json> tags wi
 
 TIME PERIOD: {articles_data.get('year', 'recent years')}
 QUERY: {query}
+CURRENT ITERATION: {iteration} of {max_iterations}
 
 Begin your analysis by thinking through how to approach these articles. You MUST use <thinking></thinking> tags to show your detailed reasoning process. For example:
 
@@ -391,8 +392,8 @@ Here are the articles:
 {json.dumps(articles_data['articles'], indent=2)}
 
 In your response:
-1. Decide if we should continue exploring more namespaces ("continue_exploration")
-2. Suggest which time periods to explore next ("next_namespaces")
+1. Decide if we should continue exploring more namespaces/years ("continue_exploration")
+2. Suggest which time periods to explore next ("next_periods") - can be years or specific namespaces
 3. Recommend specific queries that might yield better results ("recommended_queries")
 4. Explain your reasoning
 
@@ -463,15 +464,63 @@ Remember to structure your final response as valid JSON within <json></json> tag
             json_data = json.loads(json_text)
             
             # Extract continuation information if available
-            if json_data.get("continue_exploration"):
+            if json_data.get("continue_exploration") and iteration < max_iterations:
                 print("\n\nContinuation Recommended:")
                 print(f"Reason: {json_data.get('reasoning', 'Not specified')}")
                 
-                if json_data.get("next_namespaces"):
-                    print(f"Suggested Namespaces: {', '.join(json_data['next_namespaces'])}")
+                next_periods = json_data.get("next_periods", [])
+                if not next_periods and json_data.get("next_namespaces"):  # Backward compatibility
+                    next_periods = json_data.get("next_namespaces")
                 
-                if json_data.get("recommended_queries"):
-                    print(f"Recommended Queries: {', '.join(json_data['recommended_queries'])}")
+                if next_periods:
+                    print(f"Suggested Periods to Explore: {', '.join(next_periods)}")
+                
+                recommended_queries = json_data.get("recommended_queries", [])
+                if recommended_queries:
+                    print(f"Recommended Queries: {', '.join(recommended_queries)}")
+                
+                # Handle continuation based on recursive flag
+                if recursive:
+                    # Auto-continue if --no-recursive not specified, otherwise ask user
+                    proceed_auto = True
+                    if os.environ.get("INTERACTIVE_MODE", "").lower() == "true":
+                        proceed = input("\nContinue with next exploration iteration? (y/n): ")
+                        proceed_auto = proceed.lower() in ['y', 'yes']
+                    
+                    if proceed_auto:
+                        print("\n" + "="*80 + "\n")
+                        print(f"AUTOMATICALLY CONTINUING TO NEXT ITERATION PER MODEL'S RECOMMENDATION")
+                        print("="*80 + "\n")
+                        
+                        # Determine next query and period
+                        next_query = recommended_queries[0] if recommended_queries else query
+                        next_period = next_periods[0] if next_periods else None
+                        
+                        # Determine if next_period is a year or namespace
+                        next_year = None
+                        next_namespace = None
+                        if next_period:
+                            if '_' in next_period:  # It's a namespace (e.g., 2023_01)
+                                next_namespace = next_period
+                            else:  # It's a year (e.g., 2023)
+                                next_year = next_period
+                        
+                        # Launch next iteration with Claude's recommendations
+                        analyze_legislative_issues(
+                            query=next_query,
+                            year=next_year,
+                            namespace=next_namespace,
+                            recursive=recursive,
+                            discovery_mode=discovery_mode,
+                            iteration=iteration+1,
+                            max_iterations=max_iterations
+                        )
+                        return
+            else:
+                if iteration >= max_iterations:
+                    print("\n\nReached maximum iteration limit.")
+                else:
+                    print("\n\nNo further exploration recommended.")
         except Exception as e:
             print(f"\nWarning: Could not parse JSON: {str(e)}")
     
@@ -480,230 +529,296 @@ Remember to structure your final response as valid JSON within <json></json> tag
 
 # ----- COMMAND LINE INTERFACE -----
 
-def run_claude_agent():
-    """Run Claude as a fully autonomous agent to analyze legislative issues"""
-    print("Starting Claude legislative research agent...\n")
+def run_full_agent():
+    """Run Claude as a fully autonomous agent with function calling capabilities to analyze legislative issues"""
+    print("Starting Claude as a fully autonomous legislative research agent...\n")
     
     # Define the system prompt for the agent
     system_prompt = """You are a Legislative Research Assistant specialized in analyzing policy issues in the U.S. Congress using Sarah Binder's (1999) approach to studying legislative gridlock through media analysis.
 
-Your task is to analyze New York Times articles to identify patterns in legislative activities and understand gridlock. Show your thought process as you work through this task.
+You have access to the following functions to help you collect and analyze data:
+1. get_available_time_periods() - Returns information about all available time periods (years and months) in the database
+2. query_articles(query_text, namespace, year, threshold) - Searches for articles matching your query in specified time periods
+3. analyze_articles(articles, query_text) - Analyzes a collection of articles to identify legislative gridlock patterns
 
-You have access to a database of New York Times articles that cover legislative activities. 
+IMPORTANT: You should use these functions to perform your analysis. Think step by step about what data you need. You can call multiple functions in parallel when appropriate.
 
-IMPORTANT: Begin by thinking about what you're trying to accomplish and what information you need. Structure your thinking clearly.
+Your task is to analyze legislative gridlock patterns in Congress by examining media coverage. Following Binder's approach:
+1. Identify key legislative issues being reported in the media
+2. Determine which issues are experiencing gridlock vs. progress
+3. Analyze the causes and dynamics of gridlock in different policy areas
 
-You should:
-1. First determine what time period you want to analyze 
-2. Decide what specific search terms would best identify articles about legislative gridlock
-3. Collect and analyze the articles
-4. Identify clusters of related legislative issues
-5. Analyze each cluster to understand signs of gridlock or progress
-6. Determine if you need to explore more time periods
+You should first explore what time periods are available in our database, then search for relevant articles about legislative activity, and finally analyze those articles to identify patterns of gridlock.
 
-Your final output should be a structured JSON with distinct policy clusters, analysis of legislative dynamics, and recommendations for further exploration.
+Format your final analysis as structured JSON with distinct policy clusters and analysis of legislative dynamics for each cluster.
 """
+
+    # Create initial function calling schema
+    function_schema = [
+        {
+            "name": "get_available_time_periods",
+            "description": "Get information about available time periods (years and months) in the NYT article database",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "string",
+                        "description": "Optional year to filter results (YYYY format)"
+                    }
+                }
+            }
+        },
+        {
+            "name": "query_articles",
+            "description": "Search for articles matching specific query text in the NYT database",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query_text": {
+                        "type": "string",
+                        "description": "Query text to search for"
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Specific namespace to search (format YYYY_MM, e.g. 2023_5)"
+                    },
+                    "year": {
+                        "type": "string",
+                        "description": "Year to search across all its months (YYYY format)"
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "description": "Minimum similarity threshold (0.0-1.0)"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of articles to return" 
+                    }
+                },
+                "required": ["query_text"]
+            }
+        },
+        {
+            "name": "analyze_articles",
+            "description": "Analyze a collection of articles to identify legislative patterns and gridlock",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "articles": {
+                        "type": "array",
+                        "description": "Array of article objects to analyze"
+                    },
+                    "query_text": {
+                        "type": "string",
+                        "description": "The original query used to find these articles"
+                    },
+                    "time_period": {
+                        "type": "string",
+                        "description": "Time period these articles are from"
+                    }
+                },
+                "required": ["articles"]
+            }
+        }
+    ]
 
     # Create initial prompt for Claude
-    user_prompt = """Please help me analyze legislative gridlock in the U.S. Congress using media coverage analysis.
+    user_prompt = """I would like you to analyze legislative gridlock in the U.S. Congress using media coverage analysis.
 
-I'd like you to approach this like Sarah Binder's 1999 study on legislative gridlock, where you examine how the media reports on Congressional activity to understand where and why gridlock occurs in the legislative process.
+Please approach this like Sarah Binder's 1999 study on legislative gridlock, where you examine how the media reports on Congressional activity to understand where and why gridlock occurs in the legislative process.
 
-Begin by thinking through your approach to this research question. Which time periods should we examine? What search terms would be most effective? How should we identify and cluster the legislative issues?
+Start by determining what time periods are available in our database, then identify and search for relevant legislative issues, and finally analyze the articles to understand patterns of gridlock.
 
-Feel free to explore recent years (2019-2024) to understand current patterns of gridlock.
+You can use the available functions to collect data and perform your analysis. Feel free to call multiple functions in parallel when appropriate to speed up your research.
 """
 
-    # Create Claude agent
-    try:
-        print("Creating Claude 3.7 Sonnet agent...")
-        message = claude_client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            max_tokens=4000,
-            temperature=0.3,
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ],
-            stream=True
-        )
-    except Exception as e:
-        print(f"Error creating Claude agent: {str(e)}")
-        print("Trying alternate Claude model...")
-        message = claude_client.messages.create(
-            model="claude-3-opus-20240229",
-            max_tokens=4000,
-            temperature=0.3,
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ],
-            stream=True
-        )
+    # Initialize conversation history
+    conversation = [
+        {"role": "user", "content": user_prompt}
+    ]
     
-    # Stream the agent's thinking
-    print("\nClaude agent is thinking about the research approach:\n")
-    initial_response = ""
-    
-    for chunk in message:
-        if chunk.type == "content_block_delta":
-            text = chunk.delta.text
-            print(text, end="", flush=True)
-            initial_response += text
-            time.sleep(0.01)  # Small delay for readability
-    
-    # Extract specific years and search terms from Claude's response
-    years_to_analyze = ["2023", "2024"]  # Default to recent years
-    search_terms = ["Congress legislation gridlock", "legislative process Congress"]  # Default search terms
-    
-    # Look for recommendations in Claude's response
-    if "I recommend analyzing" in initial_response and "years" in initial_response:
-        # Try to extract years Claude wants to analyze
-        import re
-        year_matches = re.findall(r'20\d\d', initial_response)
-        if year_matches:
-            years_to_analyze = list(set(year_matches))[:3]  # Take up to 3 unique years
-    
-    if "search terms" in initial_response:
-        # Try to extract search terms
-        lines = initial_response.split('\n')
-        for i, line in enumerate(lines):
-            if "search terms" in line.lower() and i < len(lines)-1:
-                terms = lines[i+1:i+4]
-                potential_terms = []
-                for term in terms:
-                    term = term.strip('- "\'')
-                    if term and len(term.split()) >= 2:
-                        potential_terms.append(term)
-                if potential_terms:
-                    search_terms = potential_terms[:2]  # Take up to 2 search terms
-    
-    # Now use Claude's recommendations to run actual analysis
-    print("\n\nBased on Claude's analysis, we will:")
-    print(f"- Analyze years: {', '.join(years_to_analyze)}")
-    print(f"- Use search terms: {search_terms}")
-    print("\nRunning detailed legislative analysis...\n")
-    
+    # Maximum conversation turns to prevent infinite loops
+    max_turns = 10
+    current_turn = 0
     all_articles = []
+    all_analysis = []
     
-    # For each year and search term, collect articles
-    for year in years_to_analyze:
-        for search_term in search_terms:
-            print(f"\nSearching for '{search_term}' in year {year}...")
-            try:
-                parameters = {
-                    "query_text": search_term,
-                    "year": year,
-                    "threshold": 0.35,
-                    "limit": 25  # Limit per search to avoid overwhelming
-                }
-                
-                articles_data = handle_query_legislative_issues(parameters)
-                
-                if articles_data.get("total_found", 0) > 0:
-                    print(f"Found {articles_data['total_found']} relevant articles")
-                    all_articles.extend(articles_data.get("articles", []))
-                else:
-                    print("No relevant articles found with this search term and year")
-            except Exception as e:
-                print(f"Error searching for articles: {str(e)}")
+    print("\nStarting agent conversation...\n")
+    print("-" * 80)
     
-    # Deduplicate articles
-    seen_headlines = set()
-    unique_articles = []
-    for article in all_articles:
-        headline = article.get("headline", "")
-        if headline and headline not in seen_headlines:
-            seen_headlines.add(headline)
-            unique_articles.append(article)
-    
-    print(f"\nTotal unique articles collected: {len(unique_articles)}")
-    
-    # Exit if we don't have enough articles
-    if len(unique_articles) < 10:
-        print("Not enough articles found to perform meaningful analysis. Please try different search terms or years.")
-        return
-    
-    # Limit articles to avoid overwhelming Claude
-    analysis_articles = unique_articles[:50]
-    
-    # Create a new prompt for Claude to analyze the articles
-    analysis_prompt = f"""I've collected {len(analysis_articles)} articles about legislative activities in Congress from the years {', '.join(years_to_analyze)}.
-
-Please analyze these articles using Binder's approach to studying legislative gridlock. Identify distinct clusters of legislative issues, analyze the signs of gridlock or progress for each cluster, and determine the factors contributing to gridlock.
-
-For each cluster, please provide:
-1. A descriptive name for the policy area
-2. Key articles in the cluster
-3. Analysis of the legislative dynamics
-4. Signs of gridlock or progress
-5. Factors contributing to the outcome
-
-Here are the articles:
-{json.dumps(analysis_articles, indent=2)}
-
-Please structure your final analysis as JSON within <json></json> tags.
-"""
-    
-    # Create Claude analysis
-    try:
-        print("\nAnalyzing collected articles with Claude...")
-        analysis_message = claude_client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            max_tokens=4000,
-            temperature=0.2,
-            messages=[
-                {"role": "user", "content": analysis_prompt}
-            ],
-            stream=True
-        )
-    except Exception as e:
-        print(f"Error creating analysis message: {str(e)}")
-        analysis_message = claude_client.messages.create(
-            model="claude-3-opus-20240229", 
-            max_tokens=4000,
-            temperature=0.2,
-            messages=[
-                {"role": "user", "content": analysis_prompt}
-            ],
-            stream=True
-        )
-    
-    # Stream the analysis
-    print("\nStreaming Claude's legislative gridlock analysis:\n")
-    analysis_result = ""
-    
-    for chunk in analysis_message:
-        if chunk.type == "content_block_delta":
-            text = chunk.delta.text
-            print(text, end="", flush=True)
-            analysis_result += text
-            time.sleep(0.01)  # Small delay for readability
-    
-    # Extract JSON if available
-    if "<json>" in analysis_result and "</json>" in analysis_result:
+    while current_turn < max_turns:
+        current_turn += 1
+        print(f"\n[Turn {current_turn}/{max_turns}]")
+        
         try:
-            json_text = analysis_result.split("<json>")[1].split("</json>")[0]
-            json_data = json.loads(json_text)
+            # Call Claude with the current conversation
+            response = claude_client.messages.create(
+                model="claude-3-7-sonnet-20250219",
+                max_tokens=4000,
+                temperature=0.2,
+                system=system_prompt,
+                messages=conversation,
+                tools=function_schema
+            )
             
-            # Print summary
-            print("\n\nAnalysis complete!")
+            # Add the assistant's response to the conversation
+            conversation.append({
+                "role": "assistant", 
+                "content": response.content,
+                "tool_calls": response.tool_calls if response.tool_calls else []
+            })
             
-            if json_data.get("clusters"):
-                print(f"\nIdentified {len(json_data['clusters'])} legislative issue clusters")
+            # Print the assistant's thinking/response
+            print("\nAgent's reasoning:")
+            print("-" * 40)
+            print(response.content)
+            print("-" * 40)
+            
+            # Process tool calls if any
+            if response.tool_calls and len(response.tool_calls) > 0:
+                print(f"\nAgent is making {len(response.tool_calls)} function calls:")
                 
-                # Print each cluster name
-                for i, cluster in enumerate(json_data["clusters"]):
-                    print(f"  {i+1}. {cluster.get('name', 'Unnamed cluster')}")
-            
-            if json_data.get("continue_exploration"):
-                print("\nClaude recommends continuing exploration:")
-                print(f"  Reason: {json_data.get('reasoning', 'Not specified')}")
-        except Exception as e:
-            print(f"\nWarning: Could not parse JSON: {str(e)}")
-    
-    print("\nLegislative gridlock analysis complete!")
+                tool_results = []
+                
+                for i, tool_call in enumerate(response.tool_calls):
+                    function_name = tool_call.name
+                    function_args = tool_call.parameters
+                    
+                    print(f"  Function call {i+1}: {function_name}({json.dumps(function_args, indent=2)})")
+                    
+                    # Execute the function
+                    result = None
+                    
+                    if function_name == "get_available_time_periods":
+                        result = handle_get_available_periods(function_args)
+                    
+                    elif function_name == "query_articles":
+                        # Map parameters to our existing function
+                        query_params = {
+                            "query_text": function_args.get("query_text"),
+                            "namespace": function_args.get("namespace"),
+                            "year": function_args.get("year"),
+                            "threshold": function_args.get("threshold", 0.35),
+                            "limit": function_args.get("limit", 100)  # Increased default limit
+                        }
+                        result = handle_query_legislative_issues(query_params)
+                        
+                        # Add articles to our collection
+                        if result.get("articles"):
+                            all_articles.extend(result.get("articles"))
+                    
+                    elif function_name == "analyze_articles":
+                        # Here we'll use Claude to analyze the articles
+                        articles = function_args.get("articles", [])
+                        query = function_args.get("query_text", "legislative issues")
+                        time_period = function_args.get("time_period", "various periods")
+                        
+                        # Construct a simple analysis prompt
+                        analysis_prompt = f"""Please analyze these {len(articles)} articles about legislative issues from {time_period}.
+                        
+These articles were found using the query: {query}
+                        
+Please identify:
+1. Distinct clusters of legislative issues
+2. Signs of gridlock or progress in each cluster
+3. Factors contributing to gridlock or progress
+                        
+Articles data:
+{json.dumps(articles, indent=2)}
 
+Provide your analysis in JSON format with:
+- Named policy clusters
+- Key articles in each cluster
+- Summary of legislative dynamics
+- Gridlock analysis for each cluster
+
+Structure your response as valid JSON within <json></json> tags.
+"""
+                        # Get analysis
+                        analysis_message = claude_client.messages.create(
+                            model="claude-3-7-sonnet-20250219",
+                            max_tokens=4000,
+                            temperature=0.2,
+                            messages=[{"role": "user", "content": analysis_prompt}]
+                        )
+                        
+                        # Extract JSON if it exists
+                        analysis_text = analysis_message.content
+                        analysis_json = {}
+                        
+                        if "<json>" in analysis_text and "</json>" in analysis_text:
+                            try:
+                                json_text = analysis_text.split("<json>")[1].split("</json>")[0]
+                                analysis_json = json.loads(json_text)
+                                all_analysis.append(analysis_json)
+                            except Exception as e:
+                                print(f"Error parsing analysis JSON: {e}")
+                        
+                        result = {
+                            "analysis_summary": "Analysis completed successfully",
+                            "clusters_found": len(analysis_json.get("clusters", [])),
+                            "full_analysis": analysis_json
+                        }
+                    
+                    else:
+                        result = {"error": f"Unknown function: {function_name}"}
+                    
+                    # Add the function result to the conversation
+                    tool_results.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(result)
+                    })
+                
+                # Add all tool results to the conversation
+                conversation.extend(tool_results)
+                
+                print("\nFunction calls completed. Continuing conversation...")
+                
+            else:
+                # No more function calls - check if we need to continue
+                print("\nAgent has completed its analysis.")
+                
+                # Check for a final JSON response
+                if "<json>" in response.content and "</json>" in response.content:
+                    try:
+                        json_text = response.content.split("<json>")[1].split("</json>")[0]
+                        final_analysis = json.loads(json_text)
+                        
+                        print("\nFinal Analysis Summary:")
+                        if "clusters" in final_analysis:
+                            print(f"Found {len(final_analysis['clusters'])} legislative issue clusters:")
+                            for i, cluster in enumerate(final_analysis["clusters"]):
+                                print(f"  {i+1}. {cluster.get('name', 'Unnamed cluster')}")
+                        
+                        all_analysis.append(final_analysis)
+                    except Exception as e:
+                        print(f"Error parsing final JSON: {e}")
+                
+                # End the conversation
+                break
+                
+        except Exception as e:
+            print(f"Error in agent conversation: {str(e)}")
+            break
+    
+    print("\n" + "="*80)
+    print("Agent conversation complete!")
+    
+    # Provide summary of all collected data
+    print(f"\nTotal articles collected: {len(all_articles)}")
+    print(f"Total analyses generated: {len(all_analysis)}")
+    
+    # Print the final comprehensive analysis if available
+    if all_analysis:
+        final = all_analysis[-1]
+        if "clusters" in final:
+            print("\nFinal Legislative Gridlock Analysis:")
+            for i, cluster in enumerate(final["clusters"]):
+                print(f"\n{i+1}. {cluster.get('name', 'Unnamed Cluster')}")
+                print(f"   Summary: {cluster.get('summary', '')[:150]}...")
+    
+    return
 def main():
     """Command line interface for the legislative issues analyzer"""
     print("NYT Legislative Issues Analyzer")
@@ -724,6 +839,9 @@ def main():
     no_recursive = False
     discovery_mode = False
     agent_mode = False
+    
+    # Set interactive mode environment variable to control auto-continue behavior
+    os.environ["INTERACTIVE_MODE"] = "false"  # Default to auto-continue
     
     if len(sys.argv) > 1:
         # Check for flags
@@ -749,6 +867,7 @@ def main():
             
         if "--interactive" in sys.argv:
             interactive = True
+            os.environ["INTERACTIVE_MODE"] = "true"  # Set to ask user before continuing
             sys.argv.remove("--interactive")
             
         if "--agent" in sys.argv:
@@ -782,12 +901,12 @@ def main():
         
         return
     
-    # Agent mode
+    # Agent mode - fully autonomous with function calling
     if agent_mode:
         print("\nRunning in full agent mode - Claude will control the entire research process")
         print("Using Sarah Binder's (1999) legislative gridlock framework")
         try:
-            run_claude_agent()
+            run_full_agent()
         except Exception as e:
             print(f"Error in agent mode: {str(e)}")
             import traceback
@@ -840,6 +959,7 @@ def main():
         import traceback
         traceback.print_exc()
         return
+
 
 if __name__ == "__main__":
     main()
