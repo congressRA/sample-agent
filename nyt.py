@@ -168,13 +168,13 @@ functions_schema = [
 
 # ----- FUNCTION IMPLEMENTATION -----
 
-def handle_query_legislative_issues(parameters):
+def handle_query_legislative_issues(parameters, top_k=300):
     """Handle query for legislative issues"""
     query_text = parameters.get("query_text")
     year = parameters.get("year")
     namespace = parameters.get("namespace")  # Allow direct namespace specification
     threshold = parameters.get("threshold", 0.35)
-    limit = parameters.get("limit", 100)  # Increased default limit to get more articles
+    limit = parameters.get("limit", 200)  # Increased default limit to get more articles
     
     print(f"Querying for: {query_text}")
     all_results = []
@@ -186,7 +186,7 @@ def handle_query_legislative_issues(parameters):
     # Case 1: Specific namespace provided
     if namespace:
         print(f"Searching in specific namespace: {namespace}")
-        results = query_pinecone(query_text, namespace=namespace, top_k=100, threshold=threshold)
+        results = query_pinecone(query_text, namespace=namespace, top_k=top_k, threshold=threshold)
         all_results.extend(results["matches"])
         queried_namespaces.append(namespace)
     
@@ -208,7 +208,7 @@ def handle_query_legislative_issues(parameters):
         # Query each namespace for this year
         for ns in year_namespaces:
             print(f"  - Querying namespace: {ns}")
-            results = query_pinecone(query_text, namespace=ns, top_k=200, threshold=threshold)
+            results = query_pinecone(query_text, namespace=ns, top_k=top_k, threshold=threshold)
             all_results.extend(results["matches"])
             queried_namespaces.append(ns)
     
@@ -225,7 +225,7 @@ def handle_query_legislative_issues(parameters):
             # Query each namespace for this year
             for ns in year_namespaces:
                 print(f"  - Querying namespace: {ns}")
-                results = query_pinecone(query_text, namespace=ns, top_k=200, threshold=threshold)
+                results = query_pinecone(query_text, namespace=ns, top_k=top_k, threshold=threshold)
                 all_results.extend(results["matches"])
                 queried_namespaces.append(ns)
     
@@ -278,7 +278,7 @@ def handle_get_available_periods(parameters):
 
 # ----- STREAMING IMPLEMENTATION -----
 
-def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=True, discovery_mode=False, iteration=1, max_iterations=3):
+def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=True, discovery_mode=False, iteration=1, max_iterations=3, top_k=300, threshold=0.35):
     """Analyze legislative issues in Congress with Claude and stream the response"""
     print(f"Analyzing legislative issues in Congress... [Iteration {iteration}/{max_iterations}]\n")
     
@@ -300,17 +300,18 @@ def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=
         print(f"Year: {year}")
     if namespace:
         print(f"Namespace: {namespace}")
+    print(f"Using top_k: {top_k}, threshold: {threshold}")
     
     # Get articles
     parameters = {
         "query_text": query,
         "year": year,
         "namespace": namespace,
-        "threshold": 0.35,
+        "threshold": threshold,
         "limit": 100  # Increased to get more articles for better analysis
     }
     
-    articles_data = handle_query_legislative_issues(parameters)
+    articles_data = handle_query_legislative_issues(parameters, top_k=top_k)
     
     if articles_data.get("error"):
         print(f"Error: {articles_data['error']}")
@@ -322,41 +323,63 @@ def analyze_legislative_issues(query=None, year=None, namespace=None, recursive=
     # Step 2: Send to Claude for analysis
     print("Analyzing articles with Claude...\n")
     
+    # Extract the year from articles_data
+    year_str = articles_data.get('year', '2024')
+    if isinstance(year_str, str) and year_str.isdigit():
+        year = year_str
+    else:
+        year = "2024"  # Default to 2024 if not specified or invalid
+    
     # Prepare system prompt with explicit thinking instructions
-    system_prompt = """You are a legislative analyst specializing in US Congressional policy who replicates the Binder (1999) legislative gridlock study approach.
+    system_prompt = f"""You are a legislative analyst specializing in US Congressional policy who replicates the Binder (1999) legislative gridlock study approach.
+
+CRITICAL MISSION: You must EXHAUSTIVELY identify and analyze ALL legislative issue clusters for the year {year} ONLY. Do NOT analyze other years.
 
 USE THINKING: You MUST show your detailed thought process by using <thinking></thinking> tags. This helps users understand your analysis process in real-time as you consider different ways to cluster articles.
 
-For each cluster of related articles:
+For each cluster:
 1. Give the cluster a descriptive name (5-7 words capturing the policy area)
-2. Provide a list of 5-10 key articles in the cluster
+2. Provide a list of 5-15 key articles in the cluster (proper size is critical)
 3. Write a 3-5 sentence summary of the legislative issues/debates represented
 4. Explain how these issues relate to the formal legislative process or gridlock in Congress
+5. Include an "article_count" field with the number of articles in this cluster
 
 When analyzing, pay special attention to:
-- Bills being debated or passed in Congress
+- Specific bills being debated or passed in Congress
 - Committee activities and hearings
-- Partisan dynamics affecting legislation
+- Partisan dynamics affecting legislation 
 - Key policy stakeholders (interest groups, agencies)
 - Legislative procedures being used or debated
-- Signs of legislative gridlock or progress
+- Signs of gridlock or progress for each issue
 
 Your output must be structured as valid JSON surrounded by <json></json> tags with this structure:
-{
+{{
   "clusters": [
-    {
+    {{
       "name": "string", 
       "articles": ["headline1", "headline2", ...], 
+      "article_count": integer,
       "summary": "string", 
       "legislative_process": "string"
-    },
+    }},
     ...
   ],
-  "continue_exploration": boolean,  // whether you want to explore more namespaces/years
-  "next_periods": ["YYYY", "YYYY_MM", ...],  // which periods to explore next (years or specific namespaces)
+  "continue_exploration": boolean,  // whether you want to explore more data
   "reasoning": "string",  // explanation of why you want to continue or stop
-  "recommended_queries": ["query1", "query2", ...] // suggested queries for further exploration
-}
+  "recommended_function_calls": [  // REQUIRED if continue_exploration is true
+    {{
+      "name": "query_articles",  // or other function name
+      "parameters": {{
+        "query_text": "string",
+        "year": "{year}",  // MUST use this year only
+        "namespace": "string",  // optional specific namespace
+        "threshold": number,  // optional threshold value
+        "limit": number  // optional result limit
+      }}
+    }},
+    // More function calls if needed
+  ]
+}}
 """
     
     # Prepare user message
@@ -513,7 +536,9 @@ Remember to structure your final response as valid JSON within <json></json> tag
                             recursive=recursive,
                             discovery_mode=discovery_mode,
                             iteration=iteration+1,
-                            max_iterations=max_iterations
+                            max_iterations=max_iterations,
+                            top_k=top_k,
+                            threshold=threshold
                         )
                         return
             else:
@@ -529,26 +554,38 @@ Remember to structure your final response as valid JSON within <json></json> tag
 
 # ----- COMMAND LINE INTERFACE -----
 
-def run_full_agent():
+def run_full_agent(target_year="2024", top_k=300, threshold=0.35):
     """Run Claude as a fully autonomous agent with function calling capabilities to analyze legislative issues"""
-    print("Starting Claude as a fully autonomous legislative research agent...\n")
+    print(f"Starting Claude as a fully autonomous legislative research agent for year {target_year}...\n")
     
     # Define the system prompt for the agent
-    system_prompt = """You are a Legislative Research Assistant specialized in analyzing policy issues in the U.S. Congress using Sarah Binder's (1999) approach to studying legislative gridlock through media analysis.
+    system_prompt = f"""You are a Legislative Research Assistant specialized in analyzing policy issues in the U.S. Congress using Sarah Binder's (1999) approach to studying legislative gridlock through media analysis.
+
+CRITICAL MISSION: You must EXHAUSTIVELY identify and analyze ALL legislative issue clusters for the year {target_year} ONLY. Do NOT analyze other years.
 
 You have access to the following functions to help you collect and analyze data:
 1. get_available_time_periods() - Returns information about all available time periods (years and months) in the database
 2. query_articles(query_text, namespace, year, threshold) - Searches for articles matching your query in specified time periods
 3. analyze_articles(articles, query_text) - Analyzes a collection of articles to identify legislative gridlock patterns
 
-IMPORTANT: You should use these functions to perform your analysis. Think step by step about what data you need. You can call multiple functions in parallel when appropriate.
+FUNCTION USAGE INSTRUCTIONS:
+- ALWAYS use year={target_year} in your function calls
+- In your first turn, call get_available_time_periods to identify available namespaces for {target_year}
+- Then call query_articles multiple times with DIFFERENT query terms to ensure comprehensive coverage
+- Make multiple function calls to find ALL legislative issues, not just the most obvious ones
+- Use analyze_articles to cluster the articles into meaningful policy groups
+- Ensure your clusters have appropriate size (5-15 articles per cluster is ideal)
 
-Your task is to analyze legislative gridlock patterns in Congress by examining media coverage. Following Binder's approach:
-1. Identify key legislative issues being reported in the media
-2. Determine which issues are experiencing gridlock vs. progress
-3. Analyze the causes and dynamics of gridlock in different policy areas
+For iterations:
+1. If you need more information in a subsequent turn, explicitly state which function you want to call next and with what parameters
+2. If you say "continue_exploration: true" you MUST specify the exact function calls you want to make in the next iteration
+3. Format your recommended_function_calls as a JSON array of function calls with parameters
 
-You should first explore what time periods are available in our database, then search for relevant articles about legislative activity, and finally analyze those articles to identify patterns of gridlock.
+Your task is to exhaustively identify ALL legislative issue clusters in {target_year}, with particular focus on:
+1. Creating well-defined clusters of appropriate size (not too large or small)
+2. Identifying specific bills/legislation in each cluster 
+3. Determining whether each issue is experiencing gridlock or progress
+4. Analyzing the partisan and procedural dynamics of each issue
 
 Format your final analysis as structured JSON with distinct policy clusters and analysis of legislative dynamics for each cluster.
 """
@@ -623,13 +660,28 @@ Format your final analysis as structured JSON with distinct policy clusters and 
     ]
 
     # Create initial prompt for Claude
-    user_prompt = """I would like you to analyze legislative gridlock in the U.S. Congress using media coverage analysis.
+    user_prompt = f"""I need you to conduct a comprehensive analysis of legislative gridlock in the U.S. Congress for the year {target_year} ONLY.
 
-Please approach this like Sarah Binder's 1999 study on legislative gridlock, where you examine how the media reports on Congressional activity to understand where and why gridlock occurs in the legislative process.
+Your mission:
+1. EXHAUSTIVELY identify ALL legislative issue clusters in {target_year}
+2. Create well-defined clusters (5-15 articles per cluster is ideal)
+3. Determine gridlock or progress for each legislative issue
+4. Analyze partisan and procedural dynamics
 
-Start by determining what time periods are available in our database, then identify and search for relevant legislative issues, and finally analyze the articles to understand patterns of gridlock.
+Follow these steps:
+1. First, get available time periods to identify all namespaces for {target_year}
+2. Make multiple query_articles calls with different search terms to ensure complete coverage
+3. Search for ALL types of legislative issues (not just high-profile ones)
+4. Use analyze_articles to create meaningful clusters of the right size
+5. For each cluster, identify specific bills/legislation and their status
 
-You can use the available functions to collect data and perform your analysis. Feel free to call multiple functions in parallel when appropriate to speed up your research.
+IMPORTANT: 
+- Only analyze {target_year} data - do NOT explore other years
+- If you need more data in a later turn, explicitly specify which function calls to make next
+- Make multiple parallel function calls for comprehensive coverage
+- Ensure proper cluster size (not too large or small)
+
+Begin your analysis now by first determining available namespaces for {target_year}.
 """
 
     # Initialize conversation history
@@ -701,7 +753,7 @@ You can use the available functions to collect data and perform your analysis. F
                             "threshold": function_args.get("threshold", 0.35),
                             "limit": function_args.get("limit", 100)  # Increased default limit
                         }
-                        result = handle_query_legislative_issues(query_params)
+                        result = handle_query_legislative_issues(query_params, top_k=top_k)
                         
                         # Add articles to our collection
                         if result.get("articles"):
@@ -779,7 +831,7 @@ Structure your response as valid JSON within <json></json> tags.
                 # No more function calls - check if we need to continue
                 print("\nAgent has completed its analysis.")
                 
-                # Check for a final JSON response
+                # Check for a final JSON response and extract function call recommendations
                 if "<json>" in response.content and "</json>" in response.content:
                     try:
                         json_text = response.content.split("<json>")[1].split("</json>")[0]
@@ -790,6 +842,20 @@ Structure your response as valid JSON within <json></json> tags.
                             print(f"Found {len(final_analysis['clusters'])} legislative issue clusters:")
                             for i, cluster in enumerate(final_analysis["clusters"]):
                                 print(f"  {i+1}. {cluster.get('name', 'Unnamed cluster')}")
+                                if "article_count" in cluster:
+                                    print(f"     Articles: {cluster.get('article_count', 0)}")
+                        
+                        # Check for continuation recommendations
+                        if final_analysis.get("continue_exploration"):
+                            print("\nModel recommends continuing exploration!")
+                            
+                            if "recommended_function_calls" in final_analysis:
+                                print("Recommended function calls for next iteration:")
+                                for i, func_call in enumerate(final_analysis.get("recommended_function_calls", [])):
+                                    print(f"  {i+1}. {func_call.get('name', 'unnamed')}({json.dumps(func_call.get('parameters', {}), indent=2)})")
+                            
+                            if "reasoning" in final_analysis:
+                                print(f"\nReasoning: {final_analysis.get('reasoning')}")
                         
                         all_analysis.append(final_analysis)
                     except Exception as e:
@@ -839,6 +905,8 @@ def main():
     no_recursive = False
     discovery_mode = False
     agent_mode = False
+    top_k = 300  # Default value for top_k
+    threshold = 0.35  # Default threshold value
     
     # Set interactive mode environment variable to control auto-continue behavior
     os.environ["INTERACTIVE_MODE"] = "false"  # Default to auto-continue
@@ -881,6 +949,28 @@ def main():
         if "--discover" in sys.argv:
             discovery_mode = True
             sys.argv.remove("--discover")
+            
+        if "--top-k" in sys.argv:
+            top_k_index = sys.argv.index("--top-k") + 1
+            if top_k_index < len(sys.argv):
+                try:
+                    top_k = int(sys.argv[top_k_index])
+                    # Remove the top-k arguments
+                    sys.argv.pop(top_k_index)
+                    sys.argv.remove("--top-k")
+                except ValueError:
+                    print(f"Warning: Invalid top-k value '{sys.argv[top_k_index]}'. Using default value of 300.")
+                    
+        if "--threshold" in sys.argv:
+            threshold_index = sys.argv.index("--threshold") + 1
+            if threshold_index < len(sys.argv):
+                try:
+                    threshold = float(sys.argv[threshold_index])
+                    # Remove the threshold arguments
+                    sys.argv.pop(threshold_index)
+                    sys.argv.remove("--threshold")
+                except ValueError:
+                    print(f"Warning: Invalid threshold value '{sys.argv[threshold_index]}'. Using default value of 0.35.")
         
         # Rest of arguments form the query
         if len(sys.argv) > 1:
@@ -906,7 +996,7 @@ def main():
         print("\nRunning in full agent mode - Claude will control the entire research process")
         print("Using Sarah Binder's (1999) legislative gridlock framework")
         try:
-            run_full_agent()
+            run_full_agent(target_year=year if year else "2024", top_k=top_k, threshold=threshold)
         except Exception as e:
             print(f"Error in agent mode: {str(e)}")
             import traceback
@@ -952,7 +1042,9 @@ def main():
             year=year, 
             namespace=namespace, 
             recursive=not no_recursive,
-            discovery_mode=discovery_mode
+            discovery_mode=discovery_mode,
+            top_k=top_k,
+            threshold=threshold
         )
     except Exception as e:
         print(f"Error: {str(e)}")
