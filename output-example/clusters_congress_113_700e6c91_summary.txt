@@ -1,0 +1,57 @@
+POLICY CLUSTERS SUMMARY
+=====================
+
+Congress: 113
+Years: 2013, 2014
+Total Articles Analyzed: 200
+Total Clusters Identified: 8
+
+CLUSTERS:
+
+1. Government Funding and Fiscal Showdowns
+   Articles: 18
+   Summary: The 113th Congress was marked by repeated fiscal crises, including a 16-day government shutdown in October 2013 and multiple debt ceiling confrontations. Budget negotiations were characterized by brinkmanship and last-minute deals.
+   Legislative Process: These fiscal showdowns represent a fundamental breakdown in Congress's core constitutional function of appropriations, with regular order replaced by crisis-driven, leadership-negotiated packages.
+   Query: government shutdown debt ceiling budget appropriations fiscal crisis
+
+2. Immigration Reform
+   Articles: 12
+   Summary: Despite early bipartisan momentum and Senate passage of comprehensive immigration reform, the legislation stalled in the House, eventually leading to executive action by President Obama in late 2014.
+   Legislative Process: This issue exemplifies gridlock through chamber divergence - the Senate passed a comprehensive bill while the House refused to act, leading to policy implementation through executive action instead of legislation.
+   Query: immigration reform pathway citizenship border security executive action
+
+3. Gun Control Legislation
+   Articles: 14
+   Summary: Following the Newtown school shooting, Congress considered various gun control measures including expanded background checks, but despite initial momentum, key legislation failed in the Senate in April 2013.
+   Legislative Process: This represents gridlock through procedural obstacles, as legislation with majority support failed to overcome the 60-vote threshold in the Senate, leading to executive actions as an alternative approach.
+   Query: gun control background checks assault weapons Newtown filibuster
+
+4. Congressional Dysfunction and Procedure
+   Articles: 22
+   Summary: The 113th Congress was historically unproductive, passing fewer laws than almost any modern Congress. Articles highlight procedural changes like filibuster reform and the shift of policymaking to executive agencies and courts.
+   Legislative Process: This cluster represents meta-analysis of gridlock itself, showing how procedural obstacles, partisan polarization, and institutional dysfunction prevented legislative action across multiple policy domains.
+   Query: congressional dysfunction filibuster reform productivity gridlock polarization
+
+5. Foreign Policy and National Security
+   Articles: 11
+   Summary: Congress grappled with its role in foreign policy decisions regarding Iran sanctions, Syria intervention, and NSA surveillance programs, often with partisan divisions complicating the administration's diplomatic efforts.
+   Legislative Process: This cluster shows selective gridlock, with Congress asserting itself on some issues (Iran sanctions) while avoiding votes on others (Syria authorization), reflecting the complex dynamics of congressional-executive relations.
+   Query: foreign policy Iran sanctions Syria authorization NSA surveillance
+
+6. Healthcare and Affordable Care Act
+   Articles: 9
+   Summary: The Republican-controlled House repeatedly passed bills to repeal or defund the Affordable Care Act, while the Democratic Senate blocked these efforts. The government shutdown of 2013 was largely triggered by this standoff.
+   Legislative Process: This represents gridlock through divided government, with the House passing symbolic repeal legislation that had no chance in the Senate, while necessary technical fixes to the law remained impossible due to partisan entrenchment.
+   Query: Affordable Care Act Obamacare repeal defund healthcare reform
+
+7. Executive Action and Congressional Authority
+   Articles: 10
+   Summary: As legislative gridlock persisted, President Obama increasingly turned to executive actions to advance his agenda, raising questions about the balance of power between branches and the limitations of such approaches.
+   Legislative Process: This cluster represents the consequences of gridlock, as policy implementation shifted from the legislative to the executive branch when Congress failed to act on the president's priorities.
+   Query: executive action executive order presidential power congressional authority
+
+8. Tax and Economic Policy
+   Articles: 8
+   Summary: Despite bipartisan interest in tax reform, Congress made little progress beyond temporary extensions of existing tax provisions. Economic policy initiatives like minimum wage increases and unemployment benefits faced partisan gridlock.
+   Legislative Process: This represents gridlock through complexity and special interests, as the technical and political challenges of comprehensive tax reform proved insurmountable despite leadership commitment from both parties.
+   Query: tax reform economic policy minimum wage tax extenders

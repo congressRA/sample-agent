@@ -1,0 +1,134 @@
+{
+  "congress": "113",
+  "year": null,
+  "years": [
+    "2013",
+    "2014"
+  ],
+  "query": "legislative process US Congress policy issues",
+  "total_articles": 200,
+  "namespaces_queried": [
+    "2013_9",
+    "2013_8",
+    "2013_7",
+    "2013_6",
+    "2013_5",
+    "2013_4",
+    "2013_3",
+    "2013_2",
+    "2013_12",
+    "2013_11",
+    "2013_10",
+    "2013_1",
+    "2014_9",
+    "2014_8",
+    "2014_7",
+    "2014_6",
+    "2014_5",
+    "2014_4",
+    "2014_3",
+    "2014_2",
+    "2014_12",
+    "2014_11",
+    "2014_10",
+    "2014_1"
+  ],
+  "clusters": [
+    {
+      "name": "Government Funding and Fiscal Showdowns",
+      "articles": [
+        "The 113th Congress is concluding with partisan brinksmanship and one last mad scramble for votes to pass a $1.1 trillion spending package.",
+        "The near-death experience of a bipartisan, governmentwide funding bill on Thursday highlighted a fundamental problem with Congress at the moment: the lost art of compromise.",
+        "Hours after the Senate passed its measure, the House voted 285 to 144 to approve the Senate plan, which would fund the government through Jan. 15 and raise the debt limit through Feb. 7."
+      ],
+      "article_count": 18,
+      "summary": "The 113th Congress was marked by repeated fiscal crises, including a 16-day government shutdown in October 2013 and multiple debt ceiling confrontations. Budget negotiations were characterized by brinkmanship and last-minute deals.",
+      "legislative_process": "These fiscal showdowns represent a fundamental breakdown in Congress's core constitutional function of appropriations, with regular order replaced by crisis-driven, leadership-negotiated packages.",
+      "query": "government shutdown debt ceiling budget appropriations fiscal crisis"
+    },
+    {
+      "name": "Immigration Reform",
+      "articles": [
+        "Speaking at an immigration event in Nashville, President Obama urged Congress to pass comprehensive immigration legislation.",
+        "A bipartisan group in the House of Representatives has been meeting sporadically to create a comprehensive immigration bill, but the Senate debate is dwarfing the group's efforts.",
+        "With immigration legislation dead for the year, Congress has a very short must-do list as relations between the two parties, already miserable, seem to be getting worse."
+      ],
+      "article_count": 12,
+      "summary": "Despite early bipartisan momentum and Senate passage of comprehensive immigration reform, the legislation stalled in the House, eventually leading to executive action by President Obama in late 2014.",
+      "legislative_process": "This issue exemplifies gridlock through chamber divergence - the Senate passed a comprehensive bill while the House refused to act, leading to policy implementation through executive action instead of legislation.",
+      "query": "immigration reform pathway citizenship border security executive action"
+    },
+    {
+      "name": "Gun Control Legislation",
+      "articles": [
+        "Congress is beginning to look at options for gun safety legislation after the Newtown shooting.",
+        "The committee will begin to consider four separate gun safety measures on Thursday, although the process of narrowing actual legislative language will most likely dribble into next week.",
+        "Talks to revive legislation are quietly under way as a bipartisan group seeks a way to bridge the differences that led to last week's collapse of a background check bill."
+      ],
+      "article_count": 14,
+      "summary": "Following the Newtown school shooting, Congress considered various gun control measures including expanded background checks, but despite initial momentum, key legislation failed in the Senate in April 2013.",
+      "legislative_process": "This represents gridlock through procedural obstacles, as legislation with majority support failed to overcome the 60-vote threshold in the Senate, leading to executive actions as an alternative approach.",
+      "query": "gun control background checks assault weapons Newtown filibuster"
+    },
+    {
+      "name": "Congressional Dysfunction and Procedure",
+      "articles": [
+        "The Senate vote to end filibusters for most presidential nominees is just one symptom of the deep level of dysfunction coursing through Congress less than a year before midterm elections.",
+        "With Congress gridlocked, political decision making has moved to other governmental bodies. What we're losing in the process isn't government \u2014 it's democracy.",
+        "The 113th Congress tallied its 165th law this week, the lowest number ever by this time in a term."
+      ],
+      "article_count": 22,
+      "summary": "The 113th Congress was historically unproductive, passing fewer laws than almost any modern Congress. Articles highlight procedural changes like filibuster reform and the shift of policymaking to executive agencies and courts.",
+      "legislative_process": "This cluster represents meta-analysis of gridlock itself, showing how procedural obstacles, partisan polarization, and institutional dysfunction prevented legislative action across multiple policy domains.",
+      "query": "congressional dysfunction filibuster reform productivity gridlock polarization"
+    },
+    {
+      "name": "Foreign Policy and National Security",
+      "articles": [
+        "Lawmakers could tighten the screws on Iran's leaders in a way that helps produce a nuclear deal. Or they could foul up delicate diplomacy at a crucial moment.",
+        "By asking Congress for authorization to retaliate against Syria, President Obama has put himself at the mercy of an institution that has bedeviled his presidency for years.",
+        "Congress is expected to look at options to address the troubles of the Department of Veteran's Affairs in ways that will challenge both parties to rethink the future of the medical system."
+      ],
+      "article_count": 11,
+      "summary": "Congress grappled with its role in foreign policy decisions regarding Iran sanctions, Syria intervention, and NSA surveillance programs, often with partisan divisions complicating the administration's diplomatic efforts.",
+      "legislative_process": "This cluster shows selective gridlock, with Congress asserting itself on some issues (Iran sanctions) while avoiding votes on others (Syria authorization), reflecting the complex dynamics of congressional-executive relations.",
+      "query": "foreign policy Iran sanctions Syria authorization NSA surveillance"
+    },
+    {
+      "name": "Healthcare and Affordable Care Act",
+      "articles": [
+        "The bill passed by the House, which has now voted about 40 times to repeal or roll back the 2010 health care law, has virtually no chance of approval in the Senate.",
+        "The Affordable Care Act faces grave danger because legislative repair work that was once routine has grown impossible.",
+        "Congressional Republicans have insisted on defunding, delaying or repealing the Affordable Care Act as a condition of keeping the government running."
+      ],
+      "article_count": 9,
+      "summary": "The Republican-controlled House repeatedly passed bills to repeal or defund the Affordable Care Act, while the Democratic Senate blocked these efforts. The government shutdown of 2013 was largely triggered by this standoff.",
+      "legislative_process": "This represents gridlock through divided government, with the House passing symbolic repeal legislation that had no chance in the Senate, while necessary technical fixes to the law remained impossible due to partisan entrenchment.",
+      "query": "Affordable Care Act Obamacare repeal defund healthcare reform"
+    },
+    {
+      "name": "Executive Action and Congressional Authority",
+      "articles": [
+        "In his State of the Union address, Obama said he would work around Congress. What are the strengths and risks of such action?",
+        "President Obama's embrace of executive orders may be the only route available given deep hostility in Congress, but only so much can be delivered if legislation is not passed.",
+        "As President Obama increasingly turns to unilateral action to achieve policy goals, activists and businesses are coming forward with their wish lists and making their case out of public view."
+      ],
+      "article_count": 10,
+      "summary": "As legislative gridlock persisted, President Obama increasingly turned to executive actions to advance his agenda, raising questions about the balance of power between branches and the limitations of such approaches.",
+      "legislative_process": "This cluster represents the consequences of gridlock, as policy implementation shifted from the legislative to the executive branch when Congress failed to act on the president's priorities.",
+      "query": "executive action executive order presidential power congressional authority"
+    },
+    {
+      "name": "Tax and Economic Policy",
+      "articles": [
+        "The panel's leaders, including its chairman, Senator Max Baucus of Montana, asked colleagues to identify tax breaks, deductions and credits that they believe should be spared.",
+        "John Harwood sat down with the chairmen of the House and Senate tax-writing committees, Representative Dave Camp, Republican of Michigan, and Senator Max Baucus, Democrat of Montana, who suddenly find themselves at the center of action in Washington.",
+        "Renewing the tax package temporarily creates more opportunities for industry groups to lobby Congress, and for legislators to shake down the beneficiaries of the tax breaks for contributions."
+      ],
+      "article_count": 8,
+      "summary": "Despite bipartisan interest in tax reform, Congress made little progress beyond temporary extensions of existing tax provisions. Economic policy initiatives like minimum wage increases and unemployment benefits faced partisan gridlock.",
+      "legislative_process": "This represents gridlock through complexity and special interests, as the technical and political challenges of comprehensive tax reform proved insurmountable despite leadership commitment from both parties.",
+      "query": "tax reform economic policy minimum wage tax extenders"
+    }
+  ]
+}
