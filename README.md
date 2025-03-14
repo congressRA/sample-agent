@@ -1,5 +1,5 @@
 # Sample LLM Agent: CongressRA
-This repository contains code and resources for the paper "Agent-Enhanced Large Language Models for Researching Political Institutions" (2024) by Joseph Loffredo and Suyeol Yun from the department of political science at MIT. This code was written by Suyeol Yun, co-author of the paper.
+This repository contains code and resources for the paper "Agent-Enhanced Large Language Models for Researching Political Institutions" (2024) by Joseph Loffredo and Suyeol Yun from the department of political science at MIT. 
 
 ## Congressional Gridlock Analysis
 
