@@ -161,7 +161,7 @@ def get_year_namespaces(year):
     all_namespaces = get_namespaces()
     return [ns for ns, _ in all_namespaces if ns.startswith(f"{year}_")]
 
-def get_articles_for_congress(congress_num, query_text="legislative process US Congress", threshold=0.35, top_k=300, limit=100):
+def get_articles_for_congress(congress_num, query_text="news articles about policy issues", threshold=0.35, top_k=300, limit=100):
     """Get articles from all namespaces for a specific congressional number"""
     years = CONGRESS_TO_YEARS.get(str(congress_num))
     if not years:
@@ -351,11 +351,13 @@ def analyze_articles_claude(articles_data, year=None, congress=None, model=DEFAU
                            # We'll extract the JSON from the streamed output instead
     
     # Prepare system prompt with explicit thinking instructions
-    system_prompt = f"""You are a legislative analyst specializing in US Congressional policy who replicates the Binder (1999) legislative gridlock study approach.
+    system_prompt = f"""
 
-CRITICAL MISSION: You must EXHAUSTIVELY identify and analyze ALL legislative issue clusters for the {congress_period}. Focus on this time period ONLY.
+NOTE: Please consider only the news articles that cover events in the U.S. Congress during the time period of {congress_period}.
 
-USE THINKING: You MUST show your detailed thought process by using <thinking></thinking> tags. This helps users understand your analysis process in real-time as you consider different ways to cluster articles.
+REMEMBER: You must EXHAUSTIVELY identify and analyze ALL legislative issue clusters for the {congress_period}. Focus on this time period ONLY.
+
+USE "THINKING": You MUST show your detailed thought process by using <thinking></thinking> tags. This helps users understand your analysis process in real-time as you consider different ways to cluster articles.
 
 For each cluster:
 1. Give the cluster a descriptive name (5-7 words capturing the policy area)
